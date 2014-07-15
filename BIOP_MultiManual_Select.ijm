@@ -14,7 +14,8 @@ requires("1.38m");
 sep = File.separator;
 
 // Install the BIOP Library
-call("BIOP_LibInstaller.installLibrary", "plugins"+sep+"BIOP"+sep+"BiopLib.ijm");
+call("BIOP_LibInstaller.installLibrary", "BIOP"+sep+"BIOPLib.ijm");
+
 
 run("Action Bar","jar:file:BIOP"+sep+"BIOP_MultiManual_Select.jar!/BIOP_MultiManual_Select.ijm");
 
