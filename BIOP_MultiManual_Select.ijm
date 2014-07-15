@@ -17,7 +17,7 @@ sep = File.separator;
 call("BIOP_LibInstaller.installLibrary", "BIOP"+sep+"BIOPLib.ijm");
 
 
-run("Action Bar","jar:file:BIOP"+sep+"BIOP_MultiManual_Select.jar!/BIOP_MultiManual_Select.ijm");
+run("Action Bar","jar:file:BIOP/BIOP_MultiManual_Select.jar!/BIOP_MultiManual_Select.ijm");
 
 
 exit();
