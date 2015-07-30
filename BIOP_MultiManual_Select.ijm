@@ -18,7 +18,7 @@ call("BIOP_LibInstaller.installLibrary", "BIOP"+sep+"BIOPLib.ijm");
 
 
 run("Action Bar","jar:file:BIOP/BIOP_MultiManual_Select.jar!/BIOP_MultiManual_Select.ijm");
-
+//run("Action Bar","/plugins/ActionBar/BIOP_MultiManual_Select.ijm");
 
 exit();
 
@@ -43,180 +43,396 @@ function buildSettings() {
 	catNum = parseInt(getData("Categories"));
 	cat = getNumber("How Many Categories?",catNum);
 	setData("Categories", cat);
-	
+	colorArray = newArray("White","Red","Green","Blue","Yellow","Cyan","Magenta");
 	Dialog.create("Name "+cat+" Categories");
 	for (i=1; i<=cat; i++) {
 		categoryName = getData("Category #"+(i));
 		Dialog.addString("Category #"+i, categoryName);
+		colorROI = getData("Color for "+categoryName);
+		if (colorROI == ""){
+			colorROI = colorArray[0];
+		} 
+		Dialog.addChoice("Category #"+(i)+" color", colorArray,colorROI);
 	}
+	strokeWidth = getDataD("Stroke width",3);
+	Dialog.addNumber("Stroke width", strokeWidth);
 	Dialog.show();
 	
 	for (i=1; i<=cat; i++) {
 		catname = Dialog.getString();
 		setData("Category #"+i, catname);
+		categoryColor = Dialog.getChoice();
+		setData("Color for "+catname,categoryColor);
 	}
-}
- 
-function countRoisOfCategory(category) {
-	nRois = roiManager("count");
-	roiNum = 0;
-	for (i=0; i<nRois; i++) {
-		name = call("ij.plugin.frame.RoiManager.getName", i);
-		expr = roiNameExp(category);
-		if (matches(name, expr)) {
-			roiNum++;
-		}
-	}
-	print("There are "+roiNum+" ROIs of category '"+category+"'");
-	return roiNum;
+	strokeWidth = Dialog.getNumber();
+	setData("Stroke width", strokeWidth);
+	reColorRois();
 }
 
-function roiName(category, index) {
-	return category+" #"+index;
-}
-
-function roiNameExp(category) {
-	return category+" #\\d+";
-}
-
-
-function DrawRois(category) {
-	if (getVersion>="1.37r")
-        	setOption("DisablePopupMenu", true);
-
-	// Setup some variables. Basically these numbers
-	// Represent an action that has taken place (it's the action's ID)
-	shift=1;
-	ctrl=2; 
-	rightButton=4;
-	alt=8;
-	leftButton=16;
-	insideROI = 32; // requires 1.42i or later
-
-	// Now we initialize the ROI counts and check if there are already ROIs with this name. 
-	
-	roiNum = countRoisOfCategory(category);
-
-	// done boolean to stop the loop that checks the mouse's location
-	done=false;
-
-	// rightClicked to make sure the function saves the ROI ONCE and not
-	// continuously while "right click" is presed
-	rightClicked = false;
-	print("Started mouse tracking for "+category+", press 'ALT' to stop");
-	while(!done) {
-		// getCursorLoc gives the x,y,z position of the mouse and the flags associated
-		// to see if a particular action has happened, say a left click while shift is 
-		// pressed, you do it like this: 
-		// if (flags&leftButton!=0 && flags&shift!=0) { blah blah... }
-		
-		getCursorLoc(x,y,z,flags);
-		// print(x,y,z,flags);
-		//If a freehand selection exists and the right button was clicked AND that right click was not pressed before already
-		if (flags&rightButton!=0 && selectionType!=-1 && !rightClicked) {
-			// set rightCLicked to true to stop this condition from writing several times the same ROI
-			rightClicked = true;
-
-			// Add the ROI to the manager
-			roiManager("Add");
-
-			newName = roiName(category, roiNum+1);
-			renameLastRoi(newName);
-			roiManager("Sort");
-			roiNum++;
-			print(roiNum+" saved.");
-		}
-
-		// Once we stopped pressing the right mouse button, we can then click it again and add a new ROI
-		if (flags&rightButton==0) {
-			rightClicked = false;
-		}
-		
-		//We stop the loop when the user presses ALT
-		if(isKeyDown("alt")) {
-			done=true;
-			print("ALT Pressed: Done");
-			setKeyDown("none");
-		}
-
-		// This wait of 10ms is just to avoid checking the mouse position too often
-		wait(10);
-	}
-	// Here we are out of the drawROI loop, so you can do some post processing already here if you want
-
-}
-
-function measureCurrentImage() {
-	name=getTitle();
-	// Duplicate the image and add a channel
-	run("Select None");
-	run("Duplicate...", "title=["+name+" Overlay]");
-	
-	// Now go through the ROIs and color them
-	n = roiManager("Count");
-	currentCat = "*none*";
-	catNum=0;
-	nCats = parseInt(getData("Categories"));
+function reColorRois(){
+	n 	= roiManager("Count");
 	
 	for (i=0; i<n; i++) {
 		roiManager("Select", i);
-		name = call("ij.plugin.frame.RoiManager.getName", i);
-		cat = substring(name, 0, lastIndexOf(name,"#")-1);
-		if (cat != currentCat) {
-			setSlice(catNum+1);
+		currentRoiName = Roi.getName;
+		category = substring(currentRoiName, 0, lastIndexOf(currentRoiName,"#")-1);
+		// retrieve the color
+		colorROI 	= getData("Color for "+category);
+		strokeWidth	=	getData("Stroke width");
+			
+		if (colorROI != "") { // if the category exists
+			Roi.setStrokeColor(colorROI);
+			roiManager("Update");
+		}
+	}
+}
+
+
+function measureCurrentImage() {
+	imageName=getTitle();
+	getDimensions(imageWidth, imageHeight, channels, slices, frames);
+	getVoxelSize(pixelWidth, pixelHeight, pixelDepth, unit);
+	
+	nCats = parseInt(getData("Categories"));
+	
+	newImage(imageName+"-ROIs", "8-bit black", imageWidth, imageHeight, nCats);
+	run("Make Composite", "display=Composite");
+	setVoxelSize(pixelWidth, pixelHeight, pixelDepth, unit);
+
+	// color to fill ROI with
+	color = 125;	
+	setForegroundColor(color, color, color);
+	// Now go through the ROIs and color them
+	n 			= roiManager("Count");
+	currentCat 	= "*none*";
+	catNum		= 0;
+	// create an array to store colors of the ROI	
+	colorArray	= newArray(nCats);
+	colorIndex 	= 0;
+	
+	for (i=0; i<n; i++) {
+		roiManager("Select", i);
+		currentRoiName = Roi.getName;
+		cat = substring(currentRoiName, 0, lastIndexOf(currentRoiName,"#")-1);
+		// retrieve the color
+		colorChannel = getData("Color for "+cat);
+		//print(colorChannel);
+		
+		if (cat != currentCat) { // if the category change, store the color
+			colorArray[colorIndex] = colorChannel;
+			colorIndex++;	
 			currentCat = cat;
 			catNum++;
-			color = 50;	
-			run("Add Slice");
-			setForegroundColor(color, color, color);;
 		}
-		setSlice(1);
+		setSlice(catNum);
+		run("Fill", "slice");
 		run("Measure");
 		setResult("Cat Number", nResults-1, catNum);
-		setSlice(catNum+1);
-		print(catNum);
-	
-		run("Fill", "slice");
 	}
-	run("Properties...", "channels="+(catNum+1)+" slices=1 frames=1");
-	run("Make Composite", "display=Composite");
-	setSlice(1);
-	run("Grays");
+	changeLUTs(colorArray);
+	// add the original image as an overlay
+	run("Add Image...", "image="+imageName+" x=0 y=0 opacity=60 zero");
+}
+
+function changeLUTs(arrayOfLUT){
+	// for each channel 'n' of an image 
+	// will use the LUT specified in the arrayOfLUT[channelIndex-1]
+	getDimensions(imageWidth, imageHeight, channels, slices, frames);
+	for(channelIndex=1; channelIndex <= channels; channelIndex++){
+		if((arrayOfLUT[channelIndex-1] == "0")||(arrayOfLUT[channelIndex-1] == "")||(arrayOfLUT[channelIndex-1] == "White")){
+			Stack.setChannel(channelIndex);
+			run("Grays");
+		}else{
+			Stack.setChannel(channelIndex);
+			run(arrayOfLUT[channelIndex-1]);
+		}
+	}
+}
+
+
+
+
+function buildSettingsCounter() {
+	// Get the number of categories and Their Names
+	totalCounterNbr = parseInt(getData("Counters"));
+	counter 		= getNumber("How Many Counters?",totalCounterNbr);
+	setData("Counters", counter);
+	
+	counterNameArray = newArray("P","G");
+	counterNbrArray = newArray(9,5);
+	
+	Dialog.create("Name "+counter+" Counter");
+	for (i=1; i<=counter; i++) {
+		counterName = getData("Counters"+(i));
+		if ( (counterName == "") && (i <= lengthOf(counterNameArray) ) ){
+			counterName = counterNameArray[i-1];
+		}
+		Dialog.addString("Counter #"+i, counterName);
+		counterNbr 	= getData("Counter #"+i+" nbr");
+		if ( (counterNbr == "") && (i <= lengthOf(counterNbrArray) ) ){
+			counterNbr = counterNbrArray[i-1];
+		}
+		Dialog.addNumber("Counter #"+i+" nbr", counterNbr);
+	}
+	Dialog.show();
+	
+	for (i=1; i<=counter; i++) {
+		counterName = Dialog.getString();
+		setData("Counter #"+i, counterName);
+		counterNbr = Dialog.getNumber();
+		setData("Counter #"+i+" nbr",counterNbr);
+	}
+}
+
+
+function analyseCounterTextFile(){
+	// parameters from parameters window detected
+	pathName   		= getData("Image Folder");
+	totalCounterNbr = parseInt(getData("Counters"));
+	// parameters automatically detected
+	imageName					= getTitle();
+	//imageNameNoExt				= File.nameWithoutExtension;
+	imageNameNoExt				= substring(imageName,0,(indexOf(imageName, "tif")-1));
+	//print(imageNameNoExt);
+	getDimensions(imageWidth, imageHeight, channels, slices, frames);
+
+	if (isOpen("Results")){
+		firstRow = nResults;
+		IJ.renameResults("Results", "Temp");
+	}else{
+		
+		for (counterIndex = 1 ; counterIndex <= totalCounterNbr ; counterIndex++){
+		
+			counterName = getData("Counter #"+counterIndex);
+		//	print(counterName);
+			counterNbr 	= getData("Counter #"+counterIndex+" nbr");
+		//	print(counterNbr);
+			for (index = 0 ; index < counterNbr; index++){
+				columnName = counterName+(index+1);						
+				setResult(columnName,0,0);
+			}
+		}
+	//	updateResults;
+		IJ.renameResults("Results", "Temp");
+		firstRow = 0 ;
+	}
+
+	for (counterIndex = 1 ; counterIndex <= totalCounterNbr ; counterIndex++){
+		counterName = getData("Counter #"+counterIndex);
+	//	print(counterName);
+		counterNbr 	= getData("Counter #"+counterIndex+" nbr");
+	//	print(counterNbr);
+		countInsideAndFillResultTable(counterName	,counterNbr,firstRow);
+	}
+
+	IJ.renameResults("Temp", "Results");
+	updateResults;
+}
+
+function countInsideAndFillResultTable(typeIdentifier,maxValue,firstRow){
+	// open imageName_CounterPhenotype.txt (rfom cell counter) counting the different phenotype observed in image imageName
+	// open the corresponding counter table	
+	//run("Clear Results");
+	//print(imageNameNoExt);
+	//print(pathName+imageNameNoExt+"_"+typeIdentifier+".txt");
+	run("Results... ", "open=["+pathName+imageNameNoExt+"_"+typeIdentifier+".txt]");
+	updateResults();
+	resultsLength 			=  nResults;
+	//################################################################ get coord(x,y) and phenotype Nbr from  the results Table:
+	xCoord 					= newArray(resultsLength);
+	yCoord 					= newArray(resultsLength);
+	typeNbr					= newArray(resultsLength); 
+	for (rowIndex = 0; rowIndex < resultsLength ; rowIndex++ ){
+		xCoord [rowIndex] 	= getResult("X"		, rowIndex);
+		yCoord [rowIndex]	= getResult("Y"		, rowIndex);
+		typeNbr[rowIndex]	= getResult("Type"	, rowIndex);
+	}
+	
+	//run("Clear Results");
+	
+	IJ.renameResults("Temp", "Results");
+	rowCounter = firstRow;
+	
+	for (roiIndex = 0 ; roiIndex<roiManager("count");roiIndex++){		// For all the ROIs
+		roiManager("Select", roiIndex);									// select the ROI roiIndex
+		setResult("Label", rowCounter,imageNameNoExt+":"+Roi.getName);	// write the results in the table
+		setResult("Count", rowCounter,1);								// colum to retrieve the total count of each category
+		
+		countInsideCurrent = newArray(maxValue);						// create a an array, to add total number of each type per ROI
+		
+		for (indexContains = 0; indexContains < lengthOf(xCoord); indexContains++ ){								// for each cursor poistion at (x,y)
+			if (Roi.contains(xCoord[indexContains], yCoord[indexContains]))			{								// if it contained inside the current ROI, 
+				countInsideCurrent[(typeNbr[indexContains]-1)] = countInsideCurrent[(typeNbr[indexContains]-1)] + 1;//increases the corresponding Phenotype counter
+			}
+		}
+		
+		for (index = 0 ; index < maxValue; index++){					// write the results in the table
+			type = typeIdentifier+(index+1);	
+			setResult(type,rowCounter,countInsideCurrent[index]);	
+		}
+		
+		rowCounter++;
+	}
+	IJ.renameResults("Results", "Temp");
+}	
+
+/*
+ * Code to procedurally create an ActionBar to manage categories individually, if needed.  
+ * 
+ */
+function makeABSelManager() {
+
+	sep = File.separator;
+	path = getDirectory("plugins");
+	
+	nCat= parseInt(getData("Categories"));
+	catNames = newArray(nCat);
+	for (i=0; i<nCat; i++) {
+		cat = getData("Category #"+(i+1));
+		catNames[i] = cat;
+	}
+	
+	String.resetBuffer;
+	// import codeLibrary
+	txt = getCodeLibSelector();
+	String.append("<codeLibrary>\n"+txt+"\n"+"</codeLibrary>\n");
+	
+	for (i=0; i<nCat; i++) {
+		// Make the buttons
+		String.append("<line>\n");
+		String.append("<button>\n");
+		String.append("label="+catNames[i]+ " Add\n");
+		String.append("icon=noicon\n");
+		String.append("arg=<macro>\n");
+		String.append(addMacro(catNames[i]));
+		String.append("</macro>\n");
+	
+		String.append("<button>\n");
+		String.append("label="+catNames[i]+ " Remove\n");
+		String.append("icon=noicon\n");
+		String.append("arg=<macro>\n");
+		String.append(delMacro(catNames[i]));
+		String.append("</macro>\n");
+	
+		String.append("<button>\n");
+		String.append("label="+catNames[i]+ " Batch\n");
+		String.append("icon=noicon\n");
+		String.append("arg=<macro>\n");
+		String.append(batchFolderMacro(catNames[i]));
+		String.append("</macro>\n");
+	
+		
+		String.append("</line>\n");
+	}
+	
+	File.makeDirectory(path+"ActionBar"+sep+"selector"+sep);
+	fullPath = path+"ActionBar"+sep+"selector"+sep+"Selector_.ijm";
+	
+	File.saveString(String.buffer, fullPath);
+	
+	run("Action Bar","plugins/ActionBar/selector/Selector_.ijm");
+
+}
+
+function addMacro(catName){
+	return "DrawRoisL(\""+catName+"\");\n");
+}
+
+function delMacro(catName){
+	txt = "idx = findRoisWithName(\""+catName+".*\");"+"\n";
+	txt +="roiList = newArray(idx.length+1);"+"\n";
+	txt +="roiList[0] = \"None\";"+"\n";
+	txt +="for (i=0; i<idx.length; i++) {"+"\n";
+	txt +="	roiManager(\"Select\", idx[i]);"+"\n";
+	txt +="	roiList[i+1] = Roi.getName();"+"\n";
+		
+	txt +="}"+"\n";
+	txt +="Dialog.create(\"Select ROI to Delete\");"+"\n";
+	txt +="Dialog.addChoice(\"ROI Name\", roiList, roiList[0]);"+"\n";
+	txt +="Dialog.show();"+"\n";
+
+	txt +="toDel = Dialog.getChoice();"+"\n";
+	txt +="if(toDel != \"None\") {"+"\n";
+	txt +="	idx2 = findRoiWithName(toDel);"+"\n";
+	txt +="	roiManager(\"Select\", idx2);"+"\n";
+	txt +="	roiManager(\"Delete\");"+"\n";
+	txt +="	// Now move every object up"+"\n";
+	txt +="	roiNum = parseInt(substring(toDel, lastIndexOf(toDel, \"#\")+1));"+"\n";
+	txt +="	if(roiNum != idx.length) {"+"\n";
+	txt +="		for(i=roiNum; i<idx.length; i++) {"+"\n";
+	txt +="			roiManager(\"Select\", idx[i-1]);"+"\n";
+	txt +="			roiManager(\"Rename\", \""+catName+" #\"+i);"+"\n";
+	txt +="		}"+"\n";
+	txt +="	}"+"\n";
+	txt +="}"+"\n";
+
+	return txt;
+}
+
+function batchFolderMacro(category) {
+	txt ="nI = getNumberImages();"+"\n";
+	txt +="for (i=0; i<nI; i++) {"+"\n";
+	txt +="roiManager(\"reset\");"+"\n";
+	txt +="openImage(i);"+"\n";
+	txt +="DrawRoisL(\""+category+"\");"+"\n";
+	txt +="wait(200);"+"\n";
+	txt +="//Save ROIs"+"\n";
+	txt +="saveRois(\"Open\");"+"\n";
+	txt +="//Close the image before going to the next one"+"\n";
+	txt +="close();"+"\n";
+	txt +="}"+"\n";
+	return txt;
+}
+
+function getCodeLibSelector() {
+txt ="function toolName() {"+"\n";
+txt +="	return \"MultiManual Selector\";"+"\n";
+txt +="}"+"\n";
+return txt;
 }
 </codeLibrary>
+<text><html><font size=2 color=#66666f> ---------------------------------------Parameters
 <line>
 <button>
-label=Select Folder
+label=Save
+arg=<macro>
+saveParameters();
+</macro>
+
+<button>
+label=Load
+arg=<macro>
+loadParameters();
+</macro>
+</line>
+
+
+
+
+<text><html><font size=2 color=#66666f> ---------------------------------------------Select
+
+<line>
+<button>
+label= Folder
 icon=noicon
 arg=<macro>
 //Open the file and parse the data
 openParamsIfNeeded();
-
 setImageFolder("Select Working Folder");
 </macro>
 </line>
 
 <line>
 <button>
-label=Select Image
+label= Image
 icon=noicon
 arg=<macro>
-
 selectImageDialog();
 </macro>
 </line>
 
-<line>
-<button>
-label=Save image (+ ROI)
-icon=noicon
-arg=<macro>
+<text><html><font size=2 color=#66666f> ---------------------------------------Draw ROIs
 
-saveCurrentImage();
-//Saves the ROI Set with the name of the current image
-saveRois("Open");
-</macro>
-</line>
 
 <line>
 <button>
@@ -224,28 +440,50 @@ label=Settings
 icon=noicon
 arg=<macro>
 buildSettings();
+makeABSelManager();
 </macro>
 </line>
 
 <line>
 <button>
-label=Draw ROIs
+label= on current Image
 icon=noicon
 arg=<macro>
 nRois = parseInt(getData("Categories"));
 // Draw the ROIs and stop when the user presses "ALT"
 for (i=1; i<=nRois; i++) {
 	category = getData("Category #"+i);
-	DrawRois(category);
+	DrawRoisL(category);
 	wait(1000);
 }
 
 // Then save the ROIs right away.
 saveRois("Open");
 </macro>
+</line>
+
+
+<line>
+<button>
+label=Save image (+ ROI)
+icon=noicon
+arg=<macro>
+saveCurrentImage();
+//Saves the ROI Set with the name of the current image
+saveRois("Open");
+</macro>
 
 <button>
-label=Batch Draw ROIs
+label=Clear ROIs
+icon=noicon
+arg=<macro>
+roiManager("Reset");
+</macro>
+</line>
+
+<line>
+<button>
+label= on current Folder
 icon=noicon
 arg=<macro>
 nI = getNumberImages();
@@ -256,7 +494,7 @@ for (i=0; i<nI; i++) {
 	// Draw the ROIs and stop when the user presses "ALT"
 	for (j=1; j<=nRois; j++) {
 		category = getData("Category #"+j);
-		DrawRois(category);
+		DrawRoisL(category);
 		wait(1000);
 	}
 
@@ -269,19 +507,10 @@ for (i=0; i<nI; i++) {
 </macro>
 </line>
 
+<text><html><font size=2 color=#66666f> ------------------------------------------Measure
 <line>
 <button>
-label=Clear ROIs
-icon=noicon
-arg=<macro>
-roiManager("Reset");
-</macro>
-</line>
-</line>
-
-<line>
-<button>
-label=Measure Current Image
+label= on current Image
 icon=noicon
 arg=<macro>
 measureCurrentImage();
@@ -290,7 +519,7 @@ measureCurrentImage();
 </line>
 <line>
 <button>
-label=Batch Measure
+label= on current Folder
 icon=noicon
 arg=<macro>
 run("Clear Results");
@@ -309,5 +538,79 @@ for (i=0; i<nI; i++) {
 	//Close the image before going to the next one
 	close();
 }
+</macro>
+</line>
+
+<text><html><font size=2 color=#66666f> -----------------------------------------Counter
+<line>
+<button>
+label=start manual counter
+icon=noicon
+arg=<macro>
+run("Cell Counter","");
+</macro>
+</line>
+
+<text><html><font size=2 color=#66666f> -----------------------------------------Analyse
+<line>
+<button>
+label=Settings
+icon=noicon
+arg=<macro>
+buildSettingsCounter();
+</macro>
+</line>
+
+
+<line>
+<button>
+label=current Image
+icon=noicon
+arg=<macro>
+analyseCounterTextFile();
+</macro>
+</line>
+
+
+<line>
+<button>
+label= current Folder
+icon=noicon
+arg=<macro>
+run("Clear Results");
+nI = getNumberImages();
+for (i=0; i<nI; i++) {
+	roiManager("reset");
+	openImage(i);
+	n= roiManager("Count");
+	if (n>0) {
+		analyseCounterTextFile();
+	
+		saveCurrentImage();
+		//DrawROIs
+		saveRois("Save");
+	}
+	//Close the image before going to the next one
+	close();
+}
+
+path = getSaveFolder();
+if (isOpen("Results")){
+	selectWindow("Results");
+	saveAs("Results", path+"Results_Analyse.txt");
+}
+
+</macro>
+</line>
+
+
+<text><html><font size=2 color=#66666f> -------------------------------------------Help
+<line>
+<button>
+label=BIOP website
+icon=noicon
+arg=<macro>
+biopUrl = "http://biop.epfl.ch/index.php/";
+run("URL...", "url="+biopUrl);
 </macro>
 </line>
