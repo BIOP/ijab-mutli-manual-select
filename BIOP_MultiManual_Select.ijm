@@ -326,16 +326,16 @@ function makeABSelManager() {
 	}
 	
 	File.makeDirectory(path+"ActionBar"+sep+"selector"+sep);
-	fullPath = path+"ActionBar"+sep+"selector"+sep+"Selector_.ijm";
+	fullPath = path+"ActionBar"+sep+"selector"+sep+"Selector.ijm";
 	
 	File.saveString(String.buffer, fullPath);
 	
-	run("Action Bar","plugins/ActionBar/selector/Selector_.ijm");
+	run("Action Bar","plugins/ActionBar/selector/Selector.ijm");
 
 }
 
 function addMacro(catName){
-	return "DrawRoisL(\""+catName+"\");\n");
+	return "DrawRoisL(\""+catName+"\");\n"+"saveRois(\"Open\");\n");
 }
 
 function delMacro(catName){
