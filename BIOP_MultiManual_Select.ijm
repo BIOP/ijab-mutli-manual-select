@@ -141,6 +141,9 @@ function measureCurrentImage() {
 			}
 		}
 
+		if (currentCategoryNumber == -1) {
+			exit("There are no categories matching this ROI name: '"+cat+"'");
+		}
 		colorChannel = getData("Color for "+cat);										// retrieve its color
 		colorArray[currentCategoryNumber-1] = colorChannel;								// and store it in the colorArray ( that will be used later, using changeLUTs)
 		//colorArray[currentCategoryNumber-1] = getData("Color for "+cat);				// I don't get why this line doesn't work ! 
