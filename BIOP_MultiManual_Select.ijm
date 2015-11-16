@@ -153,7 +153,7 @@ function measureCurrentImage() {
 	}
 	updateResults;																		// never miss an Update ;)
 	changeLUTs(colorArray);																// change the LUTs using the custom function
-	run("Add Image...", "image="+imageName+" x=0 y=0 opacity=70 zero");					// add the original image as an overlay
+	run("Add Image...", "image=["+imageName+"] x=0 y=0 opacity=70 zero");					// add the original image as an overlay
 	run("Flatten");																		// and Flatten
 	run("Select None");																	// to save the image without an associated ROI
 }
