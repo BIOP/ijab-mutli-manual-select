@@ -16,9 +16,14 @@ sep = File.separator;
 // Install the BIOP Library
 call("BIOP_LibInstaller.installLibrary", "BIOP"+sep+"BIOPLib.ijm");
 
+// Define the Path to use the ActionBar
+runFrom = "jar:file:BIOP/BIOP_MultiManual_Select.jar!/BIOP_MultiManual_Select.ijm";
 
-run("Action Bar","jar:file:BIOP/BIOP_MultiManual_Select.jar!/BIOP_MultiManual_Select.ijm");
-//run("Action Bar","/plugins/ActionBar/BIOP_MultiManual_Select.ijm");
+// DEBUG LINE, uncomment as needed
+//runFrom = "/plugins/ActionBar/BIOP_MultiManual_Select.ijm";
+
+// Run the ActionBar
+run("Action Bar",runFrom);
 
 exit();
 
@@ -157,16 +162,17 @@ function changeLUTs(arrayOfLUT){
 	// for each channel 'n' of an image 
 	// will use the LUT specified in the arrayOfLUT[channelIndex-1]
 	getDimensions(imageWidth, imageHeight, channels, slices, frames);
-	for(channelIndex=1; channelIndex <= channels; channelIndex++){
-		if((arrayOfLUT[channelIndex-1] == "0")||(arrayOfLUT[channelIndex-1] == "")||(arrayOfLUT[channelIndex-1] == "White")){
-			Stack.setChannel(channelIndex);
-			run("Grays");
-		}else{
-			Stack.setChannel(channelIndex);
-			run(arrayOfLUT[channelIndex-1]);
+
+		for(channelIndex=1; channelIndex <= channels; channelIndex++){
+			if (channels > 1) {	Stack.setChannel(channelIndex); }
+			
+			if((arrayOfLUT[channelIndex-1] == "0")||(arrayOfLUT[channelIndex-1] == "")||(arrayOfLUT[channelIndex-1] == "White")){
+				run("Grays");
+			}else{
+				run(arrayOfLUT[channelIndex-1]);
+			}
 		}
 	}
-}
 
 function buildSettingsCounter() {
 	// Get the number of categories and Their Names
