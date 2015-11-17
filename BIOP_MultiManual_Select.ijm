@@ -371,7 +371,7 @@ function makeABSelManager() {
 		
 		String.append("</line>\n");
 	}
-	
+	File.makeDirectory(path+"ActionBar");
 	File.makeDirectory(path+"ActionBar"+sep+"selector"+sep);
 	fullPath = path+"ActionBar"+sep+"selector"+sep+"Selector.ijm";
 	
