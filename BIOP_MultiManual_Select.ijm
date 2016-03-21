@@ -87,6 +87,9 @@ function buildSettings() {
 	if (nImages > 0){
 		reColorRois();
 	}
+
+	// Add padding 
+	setData("Padding", 5);
 }
 
 function reColorRois(){
@@ -386,7 +389,8 @@ function addMacro(catName){
 }
 
 function delMacro(catName){
-	txt = "ori = roiManager(\"index\");"+"\n";
+	txt = "pad = parseInt(getData(\"Padding\"));"+"\n";
+	txt += "ori = roiManager(\"index\");"+"\n";
 	txt += "idx = findRoisWithName(\""+catName+".*\");"+"\n";
 	txt +="roiList = newArray(idx.length+1);"+"\n";
 	txt +="roiList[0] = \"None\";"+"\n";
@@ -395,7 +399,7 @@ function delMacro(catName){
 	txt +="	roiList[i+1] = Roi.getName();"+"\n";
 		
 	txt +="}"+"\n";
-	txt +="roiManager(\"Select\", ori);"+"\n";
+	//txt +="roiManager(\"Select\", ori);"+"\n";
 	txt +="Dialog.create(\"Select ROI to Delete\");"+"\n";
 	txt +="Dialog.addChoice(\"ROI Name\", roiList, roiList[0]);"+"\n";
 	txt +="Dialog.show();"+"\n";
@@ -406,11 +410,13 @@ function delMacro(catName){
 	txt +="	roiManager(\"Select\", idx2);"+"\n";
 	txt +="	roiManager(\"Delete\");"+"\n";
 	txt +="	// Now move every object up"+"\n";
-	txt +="	roiNum = parseInt(substring(toDel, lastIndexOf(toDel, \"#\")+1));"+"\n";
+	txt +="	roiNum = IJ.pad( parseInt(substring(toDel, lastIndexOf(toDel, \"#\")+1)) , pad); "+"\n"; 
+	//txt +=" roiNum = parseInt(substring(toDel, lastIndexOf(toDel, \"#\")+1));"+"\n";
 	txt +="	if(roiNum != idx.length) {"+"\n";
 	txt +="		for(i=roiNum; i<idx.length; i++) {"+"\n";
 	txt +="			roiManager(\"Select\", idx[i-1]);"+"\n";
-	txt +="			roiManager(\"Rename\", \""+catName+" #\"+i);"+"\n";
+	//txt +="			roiManager(\"Rename\", \""+catName+" #\"+i);"+"\n";
+	txt +="			roiManager(\"Rename\", \""+catName+" #\"+ IJ.pad(i,pad));"+"\n"; // sorting causes trouble ! pad the umber of the ROIs  
 	txt +="		}"+"\n";
 	txt +="	}"+"\n";
 	txt +="}"+"\n";
