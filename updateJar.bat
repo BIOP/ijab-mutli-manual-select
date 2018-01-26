@@ -4,9 +4,9 @@ SETLOCAL ENABLEDELAYEDEXPANSION
 
 REM Set name of ActionBar
 set actionBarName=BIOP_MultiManual_Select
-set biopPath=C:\Fiji.app\plugins\BIOP\
+set biopPath=C:\Fiji\plugins\BIOP\
 
-copy C:\Fiji.app\plugins\ActionBar\%actionBarName%.ijm
+copy C:\Fiji\plugins\ActionBar\Debug\%actionBarName%.ijm
 
 
 ECHO Packing ActionBar: "%actionBarName%"

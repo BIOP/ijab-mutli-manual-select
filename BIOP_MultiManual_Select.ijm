@@ -20,7 +20,7 @@ call("BIOP_LibInstaller.installLibrary", "BIOP"+sep+"BIOPLib.ijm");
 runFrom = "jar:file:BIOP/BIOP_MultiManual_Select.jar!/BIOP_MultiManual_Select.ijm";
 
 // DEBUG LINE, uncomment as needed
-//runFrom = "/plugins/ActionBar/BIOP_MultiManual_Select.ijm";
+//runFrom = "/plugins/ActionBar/Debug/BIOP_MultiManual_Select.ijm";
 
 // Run the ActionBar
 run("Action Bar",runFrom);
